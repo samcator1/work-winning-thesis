@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Business Strategy Dashboard</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel for in-browser JSX transpilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo } = React;
+
+    // Inline SVG Icon Component to replace lucide-react dependency
+    const Icon = ({ name, className }) => {
+      const paths = {
+        Pencil: <><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></>,
+        Save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></>,
+        Target: <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>,
+        Plus: <><path d="M5 12h14"/><path d="M12 5v14"/></>,
+        Trash2: <><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></>,
+        CheckCircle2: <><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></>,
+        Layers: <><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 12 12 17 22 12"/><polyline points="2 17 12 22 22 17"/></>,
+        ChevronRight: <path d="m9 18 6-6-6-6"/>,
+        Settings: <><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>,
+        Briefcase: <><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>,
+        Network: <><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3"/><path d="M12 12V8"/></>,
+        TrendingUp: <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></>,
+        Link2: <><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></>
+      };
+      
+      return (
+        <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {paths[name]}
+        </svg>
+      );
+    };
+
+    // Predefined Node Themes for the editable tables
+    const NODE_THEMES = [
+      { id: 'emerald', label: 'Emerald (Light)', classes: 'bg-emerald-50 text-emerald-900 border-emerald-200' },
+      { id: 'blue', label: 'Blue (Light)', classes: 'bg-blue-50 text-blue-900 border-blue-200' },
+      { id: 'slate', label: 'Slate (Light)', classes: 'bg-slate-100 text-slate-800 border-slate-300' },
+      { id: 'slate-mid', label: 'Slate (Mid)', classes: 'bg-slate-500 text-white border-slate-600' },
+      { id: 'slate-dark', label: 'Slate (Dark)', classes: 'bg-slate-800 text-white border-slate-900' },
+      { id: 'black', label: 'Black (Dark)', classes: 'bg-black text-white border-gray-800' } 
+    ];
+
+    const generateId = () => Math.random().toString(36).substr(2, 9);
+
+    function BusinessStrategyDashboard() {
+      const [isEditing, setIsEditing] = useState(false);
+
+      // --- Initial State Model ---
+      const [data, setData] = useState({
+        utilisationTarget: 75,
+        titles: {
+          sales: "Sales Channels & Intake",
+          tiers: "Client Tier Architecture",
+          sankey: "The 'Land & Expand' Journey"
+        },
+        waysToWin: {
+          competitive: [
+            "Projects through Frameworks", 
+            "Projects competitively tendered"
+          ],
+          nonCompetitive: [
+            "Direct sourcing extensions: same work", 
+            "Follow up projects", 
+            "Variations", 
+            "New work through personal relationships"
+          ]
+        },
+        tiers: [
+          { 
+            id: 'upper', 
+            name: 'Upper Finish Tier', 
+            weight: 10, 
+            attributes: 'Small projects, new clients, direct sourced, inside intel, buyer relationships/budget holders.', 
+            management: 'Entirely director sourced.',
+            bgColor: 'bg-slate-200',
+            textColor: 'text-slate-900',
+            borderColor: 'border-slate-300'
+          },
+          { 
+            id: 'mid', 
+            name: 'Mid Structure Tier', 
+            weight: 15, 
+            attributes: 'Project-based, secured frameworks, competitive bids, medium BD.', 
+            management: 'Senior/Exec managed, director input needed.',
+            bgColor: 'bg-slate-500',
+            textColor: 'text-white',
+            borderColor: 'border-slate-600'
+          },
+          { 
+            id: 'base', 
+            name: 'Base / Foundation Tier', 
+            weight: 50, 
+            attributes: 'Core clients, long engagements, easy BD.', 
+            management: 'Senior/Exec managed, minimal director input.',
+            bgColor: 'bg-black', // Updated to explicitly black
+            textColor: 'text-white', // Text explicitly white
+            borderColor: 'border-slate-900'
+          }
+        ],
+        // Fully dynamic Sankey Graph Model
+        sankeyNodes: [
+          { id: 'n1', title: 'Director Led / Networks', year: 1, themeId: 'emerald' },
+          { id: 'n2', title: 'Formal Frameworks', year: 1, themeId: 'blue' },
+          { id: 'n3', title: 'Upper Finish Tier', year: 2, themeId: 'slate' },
+          { id: 'n4', title: 'Mid Structure Tier', year: 2, themeId: 'slate-mid' },
+          { id: 'n5', title: 'Mid Structure (Retained)', year: 3, themeId: 'slate-dark' },
+          { id: 'n6', title: 'Base / Foundation Tier', year: 3, themeId: 'black' } // Explicitly Black with White text
+        ],
+        sankeyFlows: [
+          { id: 'f1', source: 'n1', target: 'n3', volume: 15 },
+          { id: 'f2', source: 'n2', target: 'n4', volume: 25 },
+          { id: 'f3', source: 'n3', target: 'n4', volume: 5 }, // Upper -> Mid
+          { id: 'f4', source: 'n3', target: 'n6', volume: 10 },
+          { id: 'f5', source: 'n4', target: 'n5', volume: 10 },
+          { id: 'f6', source: 'n4', target: 'n6', volume: 15 },
+        ]
+      });
+
+      // --- State Updaters ---
+      const updateGlobal = (field, value) => setData(prev => ({ ...prev, [field]: value }));
+      const updateTitle = (key, value) => setData(prev => ({ ...prev, titles: { ...prev.titles, [key]: value } }));
+
+      // Ways to Win
+      const updateWayToWin = (category, index, value) => {
+        const newList = [...data.waysToWin[category]];
+        newList[index] = value;
+        setData(prev => ({ ...prev, waysToWin: { ...prev.waysToWin, [category]: newList } }));
+      };
+      const addWayToWin = (category) => setData(prev => ({ ...prev, waysToWin: { ...prev.waysToWin, [category]: [...prev.waysToWin[category], "New Item"] } }));
+      const removeWayToWin = (category, index) => {
+        const newList = [...data.waysToWin[category]];
+        newList.splice(index, 1);
+        setData(prev => ({ ...prev, waysToWin: { ...prev.waysToWin, [category]: newList } }));
+      };
+
+      // Tiers
+      const updateTier = (index, field, value) => {
+        const newTiers = [...data.tiers];
+        newTiers[index][field] = field === 'weight' ? Number(value) || 0 : value;
+        setData(prev => ({ ...prev, tiers: newTiers }));
+      };
+      const addTier = () => {
+        setData(prev => ({
+          ...prev,
+          tiers: [...prev.tiers, { 
+            id: generateId(), name: 'New Tier', weight: 10, attributes: 'Attributes...', management: 'Management...',
+            bgColor: 'bg-slate-200', textColor: 'text-slate-900', borderColor: 'border-slate-300'
+          }]
+        }));
+      };
+      const removeTier = (index) => {
+        setData(prev => ({ ...prev, tiers: prev.tiers.filter((_, i) => i !== index) }));
+      };
+
+      // Dynamic Sankey Graph Methods
+      const updateSankeyNode = (index, field, value) => {
+        const newNodes = [...data.sankeyNodes];
+        newNodes[index][field] = value;
+        setData(prev => ({ ...prev, sankeyNodes: newNodes }));
+      };
+      const addSankeyNode = () => {
+        setData(prev => ({
+          ...prev,
+          sankeyNodes: [...prev.sankeyNodes, { id: generateId(), title: 'New Block', year: 1, themeId: 'slate' }]
+        }));
+      };
+      const removeSankeyNode = (index) => {
+        const nodeToRemove = data.sankeyNodes[index];
+        setData(prev => ({
+          ...prev,
+          sankeyNodes: prev.sankeyNodes.filter((_, i) => i !== index),
+          // Cascade delete associated flows
+          sankeyFlows: prev.sankeyFlows.filter(f => f.source !== nodeToRemove.id && f.target !== nodeToRemove.id)
+        }));
+      };
+
+      const updateSankeyFlow = (index, field, value) => {
+        const newFlows = [...data.sankeyFlows];
+        newFlows[index][field] = field === 'volume' ? Number(value) || 0 : value;
+        setData(prev => ({ ...prev, sankeyFlows: newFlows }));
+      };
+      const addSankeyFlow = () => {
+        const source = data.sankeyNodes.length > 0 ? data.sankeyNodes[0].id : '';
+        setData(prev => ({
+          ...prev,
+          sankeyFlows: [...prev.sankeyFlows, { id: generateId(), source, target: source, volume: 10 }]
+        }));
+      };
+      const removeSankeyFlow = (index) => {
+        setData(prev => ({ ...prev, sankeyFlows: prev.sankeyFlows.filter((_, i) => i !== index) }));
+      };
+
+      // --- Fully Dynamic Layout Engine ---
+      const sankeyLayout = useMemo(() => {
+        const nodes = data.sankeyNodes;
+        const flows = data.sankeyFlows;
+        
+        // 1. Calculate combined node volumes (max of inflow or outflow)
+        const inVol = {};
+        const outVol = {};
+        flows.forEach(f => {
+          outVol[f.source] = (outVol[f.source] || 0) + f.volume;
+          inVol[f.target] = (inVol[f.target] || 0) + f.volume;
+        });
+
+        // 2. Collate nodes by year columns and find the maximum column volume for scaling
+        const cols = { 1: [], 2: [], 3: [] };
+        let maxColVol = 0;
+
+        nodes.forEach(n => {
+          if (!cols[n.year]) cols[n.year] = [];
+          const vol = Math.max(inVol[n.id] || 0, outVol[n.id] || 0);
+          cols[n.year].push({ ...n, vol, inVol: inVol[n.id] || 0, outVol: outVol[n.id] || 0 });
+        });
+
+        [1, 2, 3].forEach(y => {
+          if (cols[y]) {
+            const colVol = cols[y].reduce((sum, n) => sum + n.vol, 0);
+            if (colVol > maxColVol) maxColVol = colVol;
+          }
+        });
+
+        // Standard layout configurations
+        const maxFlowSum = Math.max(maxColVol, 10); // Prevent division by zero
+        const availableHeight = 400; 
+        const scale = availableHeight / maxFlowSum;
+        const minH = 45; // Enough space for multi-line text
+        const w = 180; 
+        const gapX = 180; 
+        const gapY = 30;  
+
+        // 3. Position nodes sequentially from top to bottom
+        const placedNodes = {};
+        const colX = { 1: 20, 2: 20 + w + gapX, 3: 20 + (w + gapX) * 2 };
+        
+        [1, 2, 3].forEach(y => {
+          let currentY = 60; // Start below the headers
+          if (cols[y]) {
+            cols[y].forEach(n => {
+              const h = Math.max(n.vol * scale, minH);
+              const theme = NODE_THEMES.find(t => t.id === n.themeId)?.classes || NODE_THEMES[2].classes;
+              
+              placedNodes[n.id] = { 
+                ...n, theme, x: colX[y], y: currentY, w, h,
+                // Track dynamic port offsets to prevent lines from crossing inside a node
+                currentOutY: currentY + (h - (n.outVol * scale)) / 2,
+                currentInY: currentY + (h - (n.inVol * scale)) / 2
+              };
+              currentY += h + gapY;
+            });
+          }
+        });
+
+        // 4. Generate Connecting Paths
+        // Sort flows visually from top to bottom based on source node position to minimise overlapping chaos
+        const sortedFlows = [...flows].sort((a, b) => {
+          const sA = placedNodes[a.source];
+          const sB = placedNodes[b.source];
+          if (!sA || !sB) return 0;
+          if (sA.y !== sB.y) return sA.y - sB.y;
+          const tA = placedNodes[a.target];
+          const tB = placedNodes[b.target];
+          if (!tA || !tB) return 0;
+          return tA.y - tB.y;
+        });
+
+        const paths = sortedFlows.map(f => {
+          const s = placedNodes[f.source];
+          const t = placedNodes[f.target];
+          if (!s || !t) return null; // Skip if nodes were deleted but flows remain momentarily
+
+          const thickness = f.volume * scale;
+          
+          // Derive line color from source node theme (e.g. bg-emerald-50 -> emerald)
+          const bgClass = s.theme.split(' ')[0];
+          const colorName = bgClass.replace('bg-', '').split('-')[0];
+          const pathColor = `fill-${colorName === 'black' ? 'gray' : colorName}-500/30 hover:fill-${colorName === 'black' ? 'gray' : colorName}-500/50`;
+
+          const path = {
+            id: f.id, val: f.volume, color: pathColor,
+            x0: s.x + s.w, y0_t: s.currentOutY, y0_b: s.currentOutY + thickness,
+            x1: t.x,       y1_t: t.currentInY,  y1_b: t.currentInY + thickness
+          };
+
+          // Increment ports so the next flow starts directly underneath this one
+          s.currentOutY += thickness;
+          t.currentInY += thickness;
+
+          return path;
+        }).filter(Boolean); // Remove nulls
+
+        const headers = [
+          { title: 'Year 1: Intake & Sourcing', x: colX[1] + w/2 },
+          { title: 'Year 2: Landing & Delivery', x: colX[2] + w/2 },
+          { title: 'Year 3: Account Expansion', x: colX[3] + w/2 }
+        ];
+
+        return { nodes: Object.values(placedNodes), paths, headers };
+      }, [data.sankeyNodes, data.sankeyFlows]);
+
+      // Path Generator Helper for smooth bezier curves
+      const generateExpandingPath = (p) => {
+        const handle = (p.x1 - p.x0) * 0.45; 
+        return `M ${p.x0} ${p.y0_t} 
+                C ${p.x0 + handle} ${p.y0_t}, ${p.x1 - handle} ${p.y1_t}, ${p.x1} ${p.y1_t} 
+                L ${p.x1} ${p.y1_b} 
+                C ${p.x1 - handle} ${p.y1_b}, ${p.x0 + handle} ${p.y0_b}, ${p.x0} ${p.y0_b} Z`;
+      };
+
+      // --- Subcomponents ---
+      const EditableText = ({ value, onChange, className, multiline = false, type = "text" }) => {
+        if (!isEditing) return <span className={className}>{value}</span>;
+        if (multiline) {
+          return (
+            <textarea 
+              value={value} onChange={e => onChange(e.target.value)}
+              className={`w-full bg-black/5 border-2 border-dashed border-blue-400/50 rounded p-1 outline-none focus:border-blue-400 focus:bg-white/50 transition-all ${className}`}
+              rows={3}
+            />
+          );
+        }
+        return (
+          <input 
+            type={type} value={value} onChange={e => onChange(e.target.value)}
+            className={`bg-black/5 border-2 border-dashed border-blue-400/50 rounded px-2 py-1 outline-none focus:border-blue-400 focus:bg-white/50 transition-all ${className} ${type === 'number' ? 'w-20' : 'w-full'}`}
+          />
+        );
+      };
+
+      return (
+        <div className="min-h-screen bg-slate-50 p-6 md:p-8 font-sans text-slate-800 selection:bg-blue-200">
+          <div className="max-w-7xl mx-auto space-y-8">
+            
+            {/* SECTION 1: Header Control Bar */}
+            <header className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-white rounded-2xl border border-slate-200 shadow-sm gap-6 transition-all">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-slate-800 rounded-lg shadow-inner shrink-0">
+                  <Icon name="Layers" className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Clients & Market Architecture Framework</h1>
+                  <p className="text-slate-500 font-medium">Strategic Business Modelling Dashboard</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-6 w-full md:w-auto">
+                <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 px-5 py-3 rounded-xl flex-grow md:flex-grow-0">
+                  <Icon name="Target" className="w-5 h-5 text-blue-600" />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-blue-800 uppercase tracking-wider">Target Utilisation</span>
+                    <div className="text-xl font-bold text-blue-900 flex items-center">
+                      <EditableText 
+                        value={data.utilisationTarget} 
+                        onChange={v => updateGlobal('utilisationTarget', v)} 
+                        type="number" 
+                        className="text-xl"
+                      />
+                      <span className="ml-1">%</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <button 
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-sm shrink-0 ${
+                    isEditing 
+                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20' 
+                      : 'bg-slate-800 hover:bg-slate-700 text-white shadow-slate-800/20'
+                  }`}
+                >
+                  {isEditing ? <Icon name="Save" className="w-4 h-4" /> : <Icon name="Pencil" className="w-4 h-4" />}
+                  {isEditing ? 'Save Changes' : 'Edit Model'}
+                </button>
+              </div>
+            </header>
+
+            {/* Two-Column Mid Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+              
+              {/* SECTION 2: Ways to Win Work (Left Column) */}
+              <section className="lg:col-span-5 flex flex-col">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-full">
+                  <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                    <Icon name="Briefcase" className="w-5 h-5 text-slate-400 shrink-0" />
+                    <h2 className="text-lg font-bold text-slate-800 w-full">
+                      <EditableText value={data.titles.sales} onChange={v => updateTitle('sales', v)} />
+                    </h2>
+                  </div>
+                  
+                  <div className="space-y-8">
+                    {/* Competitive Column */}
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                        Competitive / Bespoke
+                      </h3>
+                      <ul className="space-y-3">
+                        {data.waysToWin.competitive.map((item, i) => (
+                          <li key={i} className="flex items-start gap-3 group">
+                            <Icon name="CheckCircle2" className="w-5 h-5 text-slate-300 shrink-0 mt-0.5" />
+                            <EditableText 
+                              value={item} 
+                              onChange={v => updateWayToWin('competitive', i, v)}
+                              className="text-slate-700 font-medium"
+                            />
+                            {isEditing && (
+                              <button onClick={() => removeWayToWin('competitive', i)} className="text-red-400 hover:text-red-600 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Icon name="Trash2" className="w-4 h-4" />
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      {isEditing && (
+                        <button onClick={() => addWayToWin('competitive')} className="mt-4 flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-800">
+                          <Icon name="Plus" className="w-4 h-4" /> Add Item
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Non-Competitive Column */}
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        Non-Competitive / Direct
+                      </h3>
+                      <ul className="space-y-3">
+                        {data.waysToWin.nonCompetitive.map((item, i) => (
+                          <li key={i} className="flex items-start gap-3 group">
+                            <Icon name="CheckCircle2" className="w-5 h-5 text-slate-300 shrink-0 mt-0.5" />
+                            <EditableText 
+                              value={item} 
+                              onChange={v => updateWayToWin('nonCompetitive', i, v)}
+                              className="text-slate-700 font-medium"
+                            />
+                            {isEditing && (
+                              <button onClick={() => removeWayToWin('nonCompetitive', i)} className="text-red-400 hover:text-red-600 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Icon name="Trash2" className="w-4 h-4" />
+                              </button>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      {isEditing && (
+                        <button onClick={() => addWayToWin('nonCompetitive')} className="mt-4 flex items-center gap-2 text-sm font-semibold text-emerald-600 hover:text-emerald-800">
+                          <Icon name="Plus" className="w-4 h-4" /> Add Item
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 3: Stacked Tier Architecture (Right Column) */}
+              <section className="lg:col-span-7 flex flex-col">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-full flex flex-col">
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+                    <div className="flex items-center gap-3 w-full pr-4">
+                      <Icon name="Network" className="w-5 h-5 text-slate-400 shrink-0" />
+                      <h2 className="text-lg font-bold text-slate-800 w-full">
+                        <EditableText value={data.titles.tiers} onChange={v => updateTitle('tiers', v)} />
+                      </h2>
+                    </div>
+                    <span className="text-xs font-bold bg-slate-100 px-3 py-1 rounded-full text-slate-500 uppercase tracking-wider shrink-0 hidden sm:inline-block">Prioritised Stack</span>
+                  </div>
+                  
+                  <div className="flex flex-col flex-grow rounded-xl overflow-hidden shadow-inner border border-slate-200">
+                    {data.tiers.map((tier, index) => (
+                      <div 
+                        key={tier.id}
+                        style={{ flexGrow: tier.weight, flexBasis: 'auto', minHeight: 'min-content' }}
+                        className={`${tier.bgColor} ${tier.textColor} border-b last:border-b-0 ${tier.borderColor} p-6 flex flex-col justify-center transition-all duration-500 relative group`}
+                      >
+                        {(tier.id === 'base' || tier.bgColor === 'bg-black') && <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none"></div>}
+                        
+                        {isEditing && (
+                          <button onClick={() => removeTier(index)} className="absolute top-4 right-4 text-white/50 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity z-20 bg-black/20 p-1.5 rounded">
+                            <Icon name="Trash2" className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                          <div className="w-full md:w-1/3 shrink-0">
+                            <div className="flex items-center gap-3 mb-1">
+                              <h3 className="text-xl font-bold tracking-tight">
+                                <EditableText value={tier.name} onChange={v => updateTier(index, 'name', v)} />
+                              </h3>
+                            </div>
+                            <div className="flex items-center font-bold text-2xl opacity-90">
+                              <EditableText value={tier.weight} onChange={v => updateTier(index, 'weight', v)} type="number" />
+                              <span className="ml-1">%</span>
+                            </div>
+                          </div>
+                          
+                          <div className="w-full md:w-2/3 space-y-3">
+                            <div className="text-sm opacity-90">
+                              <strong className="uppercase tracking-wider text-xs opacity-70 block mb-1">Attributes</strong>
+                              <EditableText value={tier.attributes} onChange={v => updateTier(index, 'attributes', v)} multiline />
+                            </div>
+                            <div className="text-sm opacity-90">
+                              <strong className="uppercase tracking-wider text-xs opacity-70 block mb-1">Management Style</strong>
+                              <EditableText value={tier.management} onChange={v => updateTier(index, 'management', v)} multiline />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {isEditing && (
+                    <button onClick={addTier} className="mt-4 flex justify-center items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 py-3 rounded-xl transition-colors">
+                      <Icon name="Plus" className="w-4 h-4" /> Add Tier Block
+                    </button>
+                  )}
+                </div>
+              </section>
+            </div>
+
+            {/* SECTION 4: Account Expansion Flow (Sankey Chart) */}
+            <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-100">
+                <Icon name="TrendingUp" className="w-5 h-5 text-slate-400 shrink-0" />
+                <div className="w-full">
+                  <h2 className="text-lg font-bold text-slate-800">
+                     <EditableText value={data.titles.sankey} onChange={v => updateTitle('sankey', v)} />
+                  </h2>
+                  <p className="text-sm text-slate-500 mt-1">Dynamically map blocks and routing volumes to build your strategy.</p>
+                </div>
+              </div>
+
+              <div className="relative w-full overflow-x-auto overflow-y-hidden bg-slate-50/50 rounded-xl border border-slate-100 p-4">
+                <svg viewBox="0 0 1080 540" className="w-full h-auto min-w-[900px]">
+                  
+                  {/* Year Column Headers */}
+                  {sankeyLayout.headers.map((header, i) => (
+                    <text key={i} x={header.x} y={30} textAnchor="middle" className="fill-slate-400 font-bold text-sm tracking-widest uppercase">
+                      {header.title}
+                    </text>
+                  ))}
+
+                  {/* Connecting Paths */}
+                  {sankeyLayout.paths.map((p) => (
+                    <path 
+                      key={p.id}
+                      d={generateExpandingPath(p)}
+                      className={`${p.color} transition-all duration-700 ease-in-out`}
+                    >
+                      <title>{`Volume: ${p.val}`}</title>
+                    </path>
+                  ))}
+
+                  {/* Nodes */}
+                  {sankeyLayout.nodes.map(node => (
+                    <g key={node.id} className="transition-all duration-700 ease-in-out">
+                      <rect 
+                        x={node.x} y={node.y} 
+                        width={node.w} height={node.h} 
+                        rx={6} ry={6}
+                        className={`${node.theme.split(' ')[0]} ${node.theme.split(' ')[2]} stroke-2 drop-shadow-sm transition-all duration-700`}
+                      />
+                      <foreignObject x={node.x} y={node.y} width={node.w} height={node.h}>
+                        <div className="w-full h-full flex items-center justify-center p-3 text-center pointer-events-none">
+                          <span className={`font-semibold text-[13px] leading-tight ${node.theme.split(' ')[1]}`}>
+                            {node.title}
+                          </span>
+                        </div>
+                      </foreignObject>
+                    </g>
+                  ))}
+                </svg>
+              </div>
+
+              {/* Edit Controls: Dynamic Editable Tables for Nodes and Flows */}
+              {isEditing && (
+                <div className="mt-8 space-y-6">
+                  
+                  {/* Blocks / Nodes Table */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-slate-100 px-4 py-3 flex items-center gap-2 border-b border-slate-200">
+                      <Icon name="Layers" className="w-4 h-4 text-slate-500" />
+                      <h3 className="font-bold text-sm text-slate-700">Manage Diagram Blocks</h3>
+                    </div>
+                    <div className="overflow-x-auto bg-white">
+                      <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead className="bg-slate-50 text-slate-500 border-b border-slate-100 text-xs uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold">Block Description</th>
+                            <th className="px-4 py-3 font-semibold w-32">Column</th>
+                            <th className="px-4 py-3 font-semibold w-40">Theme Style</th>
+                            <th className="px-4 py-3 font-semibold w-12 text-right"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {data.sankeyNodes.map((n, i) => (
+                            <tr key={n.id} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2">
+                                <input type="text" value={n.title} onChange={e => updateSankeyNode(i, 'title', e.target.value)} className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-2 py-1 outline-none transition-colors" />
+                              </td>
+                              <td className="px-4 py-2">
+                                <select value={n.year} onChange={e => updateSankeyNode(i, 'year', parseInt(e.target.value))} className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-1 py-1 outline-none">
+                                  <option value={1}>Year 1</option>
+                                  <option value={2}>Year 2</option>
+                                  <option value={3}>Year 3</option>
+                                </select>
+                              </td>
+                              <td className="px-4 py-2">
+                                <select value={n.themeId} onChange={e => updateSankeyNode(i, 'themeId', e.target.value)} className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-1 py-1 outline-none">
+                                  {NODE_THEMES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                </select>
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <button onClick={() => removeSankeyNode(i)} className="text-slate-400 hover:text-red-500 p-1 transition-colors"><Icon name="Trash2" className="w-4 h-4" /></button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="bg-slate-50 px-4 py-3 border-t border-slate-100">
+                      <button onClick={addSankeyNode} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                        <Icon name="Plus" className="w-3.5 h-3.5" /> Add New Block
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Flows / Volumes Table */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-slate-100 px-4 py-3 flex items-center gap-2 border-b border-slate-200">
+                      <Icon name="Link2" className="w-4 h-4 text-slate-500" />
+                      <h3 className="font-bold text-sm text-slate-700">Manage Route Volumes (Lines)</h3>
+                    </div>
+                    <div className="overflow-x-auto bg-white">
+                      <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead className="bg-slate-50 text-slate-500 border-b border-slate-100 text-xs uppercase tracking-wider">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold w-1/3">Source Block</th>
+                            <th className="px-4 py-3 font-semibold w-1/3">Destination Block</th>
+                            <th className="px-4 py-3 font-semibold w-32">Volume Value</th>
+                            <th className="px-4 py-3 font-semibold w-12 text-right"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {data.sankeyFlows.map((f, i) => (
+                            <tr key={f.id} className="hover:bg-slate-50/50">
+                              <td className="px-4 py-2">
+                                <select value={f.source} onChange={e => updateSankeyFlow(i, 'source', e.target.value)} className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-1 py-1 outline-none text-slate-700">
+                                  {data.sankeyNodes.map(n => <option key={n.id} value={n.id}>{n.title} (Yr {n.year})</option>)}
+                                </select>
+                              </td>
+                              <td className="px-4 py-2">
+                                <select value={f.target} onChange={e => updateSankeyFlow(i, 'target', e.target.value)} className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-blue-400 rounded px-1 py-1 outline-none text-slate-700">
+                                  {data.sankeyNodes.map(n => <option key={n.id} value={n.id}>{n.title} (Yr {n.year})</option>)}
+                                </select>
+                              </td>
+                              <td className="px-4 py-2">
+                                <input type="number" min="0" value={f.volume} onChange={e => updateSankeyFlow(i, 'volume', e.target.value)} className="w-24 bg-transparent border border-slate-200 focus:border-blue-400 rounded px-2 py-1 outline-none font-bold text-blue-600" />
+                              </td>
+                              <td className="px-4 py-2 text-right">
+                                <button onClick={() => removeSankeyFlow(i)} className="text-slate-400 hover:text-red-500 p-1 transition-colors"><Icon name="Trash2" className="w-4 h-4" /></button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="bg-slate-50 px-4 py-3 border-t border-slate-100">
+                      <button onClick={addSankeyFlow} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 transition-colors">
+                        <Icon name="Plus" className="w-3.5 h-3.5" /> Add Connecting Flow
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </section>
+
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<BusinessStrategyDashboard />);
+  </script>
+</body>
+</html>
