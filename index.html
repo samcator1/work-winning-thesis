@@ -243,11 +243,11 @@
                 {layout.headers.map((h, i) => <text key={i} x={h.x} y={30} textAnchor="middle" className="fill-slate-400 font-bold text-sm tracking-widest uppercase">{h.title}</text>)}
                 {layout.paths.map(p => <path key={p.id} d={`M ${p.x0} ${p.y0_t} C ${p.x0 + (p.x1-p.x0)*0.45} ${p.y0_t}, ${p.x1 - (p.x1-p.x0)*0.45} ${p.y1_t}, ${p.x1} ${p.y1_t} L ${p.x1} ${p.y1_b} C ${p.x1 - (p.x1-p.x0)*0.45} ${p.y1_b}, ${p.x0 + (p.x1-p.x0)*0.45} ${p.y0_b}, ${p.x0} ${p.y0_b} Z`} className={p.color}><title>Vol: {p.val}</title></path>)}
                 {layout.nodes.map(n => (
-                  <g key={n.id}><rect x={n.x} y={n.y} width={n.w} height={n.h} rx={6} className={`${n.themeClasses.split(' ')[0]} ${n.themeClasses.split(' ')[2]} stroke-2 drop-shadow-sm`} />
-                    <foreignObject x={n.x} y={n.y} width={n.w} height={n.h}><div className="w-full h-full flex items-center justify-center p-3 text-center pointer-events-none">
-                      <span className={`font-semibold text-[13px] leading-tight ${n.themeClasses.split(' ').find(c => c.startsWith('text-')) || 'text-white'}`}>{n.title}</span>
-                    </div></foreignObject>
-                  </g>
+                  <foreignObject key={n.id} x={n.x} y={n.y} width={n.w} height={n.h}>
+                    <div className={`w-full h-full flex items-center justify-center p-3 text-center border-2 rounded-md drop-shadow-sm pointer-events-none ${n.themeClasses}`}>
+                      <span className="font-semibold text-[13px] leading-tight">{n.title}</span>
+                    </div>
+                  </foreignObject>
                 ))}
               </svg>
             </div>
