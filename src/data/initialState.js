@@ -48,6 +48,14 @@ const initialState = {
     v4_upper_base: 10,
     v5_mid_mid: 10,
     v6_mid_base: 15
+  },
+  sankeyNodes: {
+    y1_1: "Director Led / Personal",
+    y1_2: "Formal Frameworks",
+    y2_1: "Upper Finish Tier",
+    y2_2: "Mid Structure Tier",
+    y3_1: "Mid Structure (Retained)",
+    y3_2: "Base / Foundation Tier"
   }
 };
 

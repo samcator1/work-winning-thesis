@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import initialState from './data/initialState';
 import SalesChannels from './components/SalesChannels';
 import ClientTiers from './components/ClientTiers';
@@ -9,12 +9,19 @@ import {
   Save, 
   Target, 
   TrendingUp, 
-  Network 
+  ArrowUpRight 
 } from 'lucide-react';
 
 function App() {
-  const [data, setData] = useState(initialState);
+  const [data, setData] = useState(() => {
+    const saved = localStorage.getItem('work-winning-thesis-data');
+    return saved ? JSON.parse(saved) : initialState;
+  });
   const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('work-winning-thesis-data', JSON.stringify(data));
+  }, [data]);
 
   const updateData = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }));
@@ -32,9 +39,9 @@ function App() {
       {/* Header */}
       <header className="max-w-7xl mx-auto mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 border-b border-white/5 pb-8">
         <div className="space-y-2">
-          <div className="flex items-center gap-3 text-blue-400 mb-1">
-            <Network className="w-6 h-6" />
-            <span className="text-xs font-bold uppercase tracking-widest">Corporate Strategy Framework</span>
+          <div className="flex items-center gap-3 text-emerald-400 mb-1">
+            <TrendingUp className="w-6 h-6" />
+            <span className="text-xs font-bold uppercase tracking-widest">Growth Strategy Framework</span>
           </div>
           <h1 className="text-4xl font-black text-white tracking-tight flex items-center gap-4">
             Work Winning Thesis
@@ -126,8 +133,10 @@ function App() {
         <div className="w-full">
           <SankeyDiagram 
             flowVolumes={data.flowVolumes} 
+            sankeyNodes={data.sankeyNodes}
             isEditing={isEditing}
             setFlowVolumes={(val) => updateData('flowVolumes', val)}
+            setSankeyNodes={(val) => updateData('sankeyNodes', val)}
           />
         </div>
       </main>
