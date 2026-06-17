@@ -141,7 +141,7 @@ const SankeyDiagram = ({ flowVolumes, isEditing, setFlowVolumes }) => {
     ];
 
     return { nodes: Object.values(n), paths };
-  }, [flowVolumes, scale]);
+  }, [flowVolumes]);
 
   const updateFlow = (key, val) => {
     setFlowVolumes({ ...flowVolumes, [key]: parseInt(val) || 0 });
