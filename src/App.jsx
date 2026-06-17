@@ -15,7 +15,14 @@ import {
 function App() {
   const [data, setData] = useState(() => {
     const saved = localStorage.getItem('work-winning-thesis-data');
-    return saved ? JSON.parse(saved) : initialState;
+    if (!saved) return initialState;
+    
+    const parsed = JSON.parse(saved);
+    // Migration: If old data structure exists, reset to initial to avoid crashes
+    if (parsed.flowVolumes || parsed.sankeyNodes) {
+      return initialState;
+    }
+    return parsed;
   });
   const [isEditing, setIsEditing] = useState(false);
 
@@ -25,6 +32,10 @@ function App() {
 
   const updateData = (field, value) => {
     setData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const updateSankeyData = (value) => {
+    setData(prev => ({ ...prev, sankeyData: value }));
   };
 
   const updateTitles = (field, value) => {
@@ -132,11 +143,9 @@ function App() {
         {/* Bottom Section: Sankey */}
         <div className="w-full">
           <SankeyDiagram 
-            flowVolumes={data.flowVolumes} 
-            sankeyNodes={data.sankeyNodes}
+            data={data.sankeyData}
             isEditing={isEditing}
-            setFlowVolumes={(val) => updateData('flowVolumes', val)}
-            setSankeyNodes={(val) => updateData('sankeyNodes', val)}
+            onChange={updateSankeyData}
           />
         </div>
       </main>

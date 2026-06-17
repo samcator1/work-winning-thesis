@@ -41,21 +41,28 @@ const initialState = {
       borderColor: "border-slate-900" 
     }
   ],
-  flowVolumes: {
-    v1_pers_upper: 15,
-    v2_frame_mid: 25,
-    v3_upper_mid: 5,
-    v4_upper_base: 10,
-    v5_mid_mid: 10,
-    v6_mid_base: 15
-  },
-  sankeyNodes: {
-    y1_1: "Director Led / Personal",
-    y1_2: "Formal Frameworks",
-    y2_1: "Upper Finish Tier",
-    y2_2: "Mid Structure Tier",
-    y3_1: "Mid Structure (Retained)",
-    y3_2: "Base / Foundation Tier"
+  sankeyData: {
+    columns: [
+      { id: 'col1', title: 'Year 1: Intake' },
+      { id: 'col2', title: 'Year 2: Delivery' },
+      { id: 'col3', title: 'Year 3: Maturity' }
+    ],
+    nodes: [
+      { id: 'n1', colId: 'col1', label: 'Director Led / Personal' },
+      { id: 'n2', colId: 'col1', label: 'Formal Frameworks' },
+      { id: 'n3', colId: 'col2', label: 'Upper Finish Tier' },
+      { id: 'n4', colId: 'col2', label: 'Mid Structure Tier' },
+      { id: 'n5', colId: 'col3', label: 'Mid Structure (Retained)' },
+      { id: 'n6', colId: 'col3', label: 'Base / Foundation Tier' }
+    ],
+    flows: [
+      { sourceId: 'n1', targetId: 'n3', value: 15 },
+      { sourceId: 'n2', targetId: 'n4', value: 25 },
+      { sourceId: 'n3', targetId: 'n5', value: 5 },
+      { sourceId: 'n3', targetId: 'n6', value: 10 },
+      { sourceId: 'n4', targetId: 'n5', value: 10 },
+      { sourceId: 'n4', targetId: 'n6', value: 15 }
+    ]
   }
 };
 

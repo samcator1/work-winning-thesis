@@ -1,234 +1,326 @@
 import React, { useMemo } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 
-const SankeyDiagram = ({ flowVolumes, sankeyNodes, isEditing, setFlowVolumes, setSankeyNodes }) => {
+const SankeyDiagram = ({ data, isEditing, onChange }) => {
   const availableHeight = 450;
-  const nodeWidth = 200;
+  const nodeWidth = 180;
   const gapX = 180;
-  const minNodeHeight = 60;
+  const minNodeHeight = 40;
 
-  // X coordinates for the 3 columns
-  const xY1 = 20;
-  const xY2 = xY1 + nodeWidth + gapX;
-  const xY3 = xY2 + nodeWidth + gapX;
-
+  // 1. Calculate Layout
   const layout = useMemo(() => {
-    // 2. Aggregate Flows per Column
-    const c1_n1_v = flowVolumes.v1_pers_upper;
-    const c1_n2_v = flowVolumes.v2_frame_mid;
-
-    const c2_n1_v = flowVolumes.v1_pers_upper; // Upper Finish (receives v1)
-    const c2_n2_v = flowVolumes.v2_frame_mid; // Mid Structure (receives v2)
-
-    const c3_n1_v = flowVolumes.v1_pers_upper + flowVolumes.v3_upper_mid + flowVolumes.v5_mid_mid; // Mid Structure Retained
-    const c3_n2_v = flowVolumes.v4_upper_base + flowVolumes.v6_mid_base + flowVolumes.v2_frame_mid; // Foundation
+    const { nodes, flows, columns } = data;
     
-    const maxFlowSum = Math.max(
-      c1_n1_v + c1_n2_v,
-      c2_n1_v + c2_n2_v,
-      c3_n1_v + c3_n2_v
+    // Group nodes by column
+    const nodesByCol = columns.map(col => ({
+      ...col,
+      nodes: nodes.filter(n => n.colId === col.id)
+    }));
+
+    // Calculate node volumes (sum of incoming or outgoing, whichever is greater)
+    const nodeStats = nodes.reduce((acc, node) => {
+      const inFlow = flows.filter(f => f.targetId === node.id).reduce((sum, f) => sum + f.value, 0);
+      const outFlow = flows.filter(f => f.sourceId === node.id).reduce((sum, f) => sum + f.value, 0);
+      acc[node.id] = { in: inFlow, out: outFlow, max: Math.max(inFlow, outFlow, 0) };
+      return acc;
+    }, {});
+
+    // Find max column height for scaling
+    const colTotals = nodesByCol.map(col => 
+      col.nodes.reduce((sum, node) => sum + nodeStats[node.id].max, 0)
     );
+    const maxColTotal = Math.max(...colTotals, 1);
+    const scale = availableHeight / maxColTotal;
 
-    const scale = availableHeight / (maxFlowSum || 1);
-    const getH = (v) => Math.max(v * scale, minNodeHeight);
+    // Position Nodes
+    const positionedNodes = {};
+    const nodeGapY = 40;
 
-    // Node Positions
-    const n = {
-      y1_1: { x: xY1, y: 0, h: getH(c1_n1_v), v: c1_n1_v, label: sankeyNodes.y1_1 },
-      y1_2: { x: xY1, y: 0, h: getH(c1_n2_v), v: c1_n2_v, label: sankeyNodes.y1_2 },
-      
-      y2_1: { x: xY2, y: 0, h: getH(c2_n1_v), v: c2_n1_v, label: sankeyNodes.y2_1 },
-      y2_2: { x: xY2, y: 0, h: getH(c2_n2_v), v: c2_n2_v, label: sankeyNodes.y2_2 },
+    nodesByCol.forEach((col, colIdx) => {
+      const x = colIdx * (nodeWidth + gapX);
+      const totalColH = col.nodes.reduce((sum, node) => sum + Math.max(nodeStats[node.id].max * scale, minNodeHeight), 0) + (col.nodes.length - 1) * nodeGapY;
+      let currentY = (availableHeight - totalColH) / 2;
 
-      y3_1: { x: xY3, y: 0, h: getH(c3_n1_v), v: c3_n1_v, label: sankeyNodes.y3_1 },
-      y3_2: { x: xY3, y: 0, h: getH(c3_n2_v), v: c3_n2_v, label: sankeyNodes.y3_2 }
+      col.nodes.forEach(node => {
+        const h = Math.max(nodeStats[node.id].max * scale, minNodeHeight);
+        positionedNodes[node.id] = {
+          ...node,
+          x,
+          y: currentY,
+          h,
+          v: nodeStats[node.id].max,
+          currentInY: currentY,
+          currentOutY: currentY
+        };
+        currentY += h + nodeGapY;
+      });
+    });
+
+    // Generate Paths
+    const paths = flows.filter(f => f.value > 0).map(flow => {
+      const source = positionedNodes[flow.sourceId];
+      const target = positionedNodes[flow.targetId];
+      if (!source || !target) return null;
+
+      const thickness = flow.value * scale;
+      const x0 = source.x + nodeWidth;
+      const x1 = target.x;
+      const y0 = source.currentOutY + thickness / 2;
+      const y1 = target.currentInY + thickness / 2;
+
+      // Update offsets for next flow
+      source.currentOutY += thickness;
+      target.currentInY += thickness;
+
+      const handle = (x1 - x0) * 0.45;
+      return {
+        d: `M ${x0} ${source.currentOutY - thickness} C ${x0 + handle} ${source.currentOutY - thickness}, ${x1 - handle} ${target.currentInY - thickness}, ${x1} ${target.currentInY - thickness} L ${x1} ${target.currentInY} C ${x1 - handle} ${target.currentInY}, ${x0 + handle} ${source.currentOutY}, ${x0} ${source.currentOutY} Z`,
+        value: flow.value,
+        sourceLabel: source.label,
+        targetLabel: target.label
+      };
+    }).filter(Boolean);
+
+    return { nodes: Object.values(positionedNodes), paths, columns: nodesByCol };
+  }, [data]);
+
+  // 2. State Handlers
+  const addNode = (colId) => {
+    const newNode = {
+      id: `n${Date.now()}`,
+      colId,
+      label: 'New Strategic Node'
     };
-
-    // Calculate Y offsets for centering nodes
-    const nodeGapY = 50;
-    const col1_h = n.y1_1.h + nodeGapY + n.y1_2.h;
-    const col2_h = n.y2_1.h + nodeGapY + n.y2_2.h;
-    const col3_h = n.y3_1.h + nodeGapY + n.y3_2.h;
-
-    n.y1_1.y = (availableHeight - col1_h) / 2;
-    n.y1_2.y = n.y1_1.y + n.y1_1.h + nodeGapY;
-
-    n.y2_1.y = (availableHeight - col2_h) / 2;
-    n.y2_2.y = n.y2_1.y + n.y2_1.h + nodeGapY;
-
-    n.y3_1.y = (availableHeight - col3_h) / 2;
-    n.y3_2.y = n.y3_1.y + n.y3_1.h + nodeGapY;
-
-    // Paths
-    const generateExpandingPath = (p) => {
-      const handle = (p.x1 - p.x0) * 0.45; 
-      return `M ${p.x0} ${p.y0_t} C ${p.x0 + handle} ${p.y0_t}, ${p.x1 - handle} ${p.y1_t}, ${p.x1} ${p.y1_t} L ${p.x1} ${p.y1_b} C ${p.x1 - handle} ${p.y1_b}, ${p.x0 + handle} ${p.y0_b}, ${p.x0} ${p.y0_b} Z`;
-    };
-
-    const paths = [
-      {
-        d: generateExpandingPath({
-          x0: n.y1_1.x + nodeWidth, x1: n.y2_1.x,
-          y0_t: n.y1_1.y, y0_b: n.y1_1.y + n.y1_1.v * scale,
-          y1_t: n.y2_1.y, y1_b: n.y2_1.y + flowVolumes.v1_pers_upper * scale
-        }),
-        color: "fill-blue-400/30"
-      },
-      {
-        d: generateExpandingPath({
-          x0: n.y1_2.x + nodeWidth, x1: n.y2_2.x,
-          y0_t: n.y1_2.y, y0_b: n.y1_2.y + n.y1_2.v * scale,
-          y1_t: n.y2_2.y, y1_b: n.y2_2.y + flowVolumes.v2_frame_mid * scale
-        }),
-        color: "fill-emerald-400/30"
-      },
-      {
-        d: generateExpandingPath({
-          x0: n.y2_1.x + nodeWidth, x1: n.y3_1.x,
-          y0_t: n.y2_1.y, y0_b: n.y2_1.y + flowVolumes.v3_upper_mid * scale,
-          y1_t: n.y3_1.y, y1_b: n.y3_1.y + flowVolumes.v3_upper_mid * scale
-        }),
-        color: "fill-blue-500/40"
-      },
-      {
-        d: generateExpandingPath({
-          x0: n.y2_1.x + nodeWidth, x1: n.y3_2.x,
-          y0_t: n.y2_1.y + flowVolumes.v3_upper_mid * scale, y0_b: n.y2_1.y + (flowVolumes.v3_upper_mid + flowVolumes.v4_upper_base) * scale,
-          y1_t: n.y3_2.y, y1_b: n.y3_2.y + flowVolumes.v4_upper_base * scale
-        }),
-        color: "fill-slate-400/30"
-      },
-      {
-        d: generateExpandingPath({
-          x0: n.y2_2.x + nodeWidth, x1: n.y3_1.x,
-          y0_t: n.y2_2.y, y0_b: n.y2_2.y + flowVolumes.v5_mid_mid * scale,
-          y1_t: n.y3_1.y + flowVolumes.v3_upper_mid * scale, y1_b: n.y3_1.y + (flowVolumes.v3_upper_mid + flowVolumes.v5_mid_mid) * scale
-        }),
-        color: "fill-emerald-500/40"
-      },
-      {
-        d: generateExpandingPath({
-          x0: n.y2_2.x + nodeWidth, x1: n.y3_2.x,
-          y0_t: n.y2_2.y + flowVolumes.v5_mid_mid * scale, y0_b: n.y2_2.y + (flowVolumes.v5_mid_mid + flowVolumes.v6_mid_base) * scale,
-          y1_t: n.y3_2.y + flowVolumes.v4_upper_base * scale, y1_b: n.y3_2.y + (flowVolumes.v4_upper_base + flowVolumes.v6_mid_base) * scale
-        }),
-        color: "fill-slate-600/30"
-      }
-    ];
-
-    return { nodes: Object.values(n), paths };
-  }, [flowVolumes, sankeyNodes]);
-
-  const updateFlow = (key, val) => {
-    setFlowVolumes({ ...flowVolumes, [key]: parseInt(val) || 0 });
+    onChange({ ...data, nodes: [...data.nodes, newNode] });
   };
 
-  const updateNodeLabel = (key, val) => {
-    setSankeyNodes({ ...sankeyNodes, [key]: val });
+  const removeNode = (nodeId) => {
+    onChange({
+      ...data,
+      nodes: data.nodes.filter(n => n.id !== nodeId),
+      flows: data.flows.filter(f => f.sourceId !== nodeId && f.targetId !== nodeId)
+    });
+  };
+
+  const updateNodeLabel = (nodeId, label) => {
+    onChange({
+      ...data,
+      nodes: data.nodes.map(n => n.id === nodeId ? { ...n, label } : n)
+    });
+  };
+
+  const updateFlow = (sourceId, targetId, value) => {
+    const val = parseInt(value) || 0;
+    const exists = data.flows.find(f => f.sourceId === sourceId && f.targetId === targetId);
+    
+    let newFlows;
+    if (exists) {
+      newFlows = data.flows.map(f => (f.sourceId === sourceId && f.targetId === targetId) ? { ...f, value: val } : f);
+    } else {
+      newFlows = [...data.flows, { sourceId, targetId, value: val }];
+    }
+    onChange({ ...data, flows: newFlows });
   };
 
   return (
-    <div className="space-y-8 bg-slate-900/50 p-8 rounded-2xl border border-white/5 backdrop-blur-md">
-      <div className="flex justify-between items-end mb-4">
-        <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-white tracking-tight">The 'Land & Expand' Journey</h2>
-          <p className="text-slate-400 text-sm">Mapping the flow of work winning from Year 1 intake to Year 3 maturity.</p>
-        </div>
-      </div>
-
-      <div className="relative">
-        {/* Year Headers aligned with columns */}
-        <div className="flex text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-6 px-[20px]">
-          <span style={{ width: nodeWidth }} className="text-center">Year 1: Intake</span>
-          <span style={{ width: nodeWidth, marginLeft: gapX }} className="text-center">Year 2: Delivery</span>
-          <span style={{ width: nodeWidth, marginLeft: gapX }} className="text-center">Year 3: Maturity</span>
+    <div className="space-y-12 bg-slate-900/50 p-8 rounded-2xl border border-white/5 backdrop-blur-md">
+      {/* 3. Header & Diagram */}
+      <div className="space-y-8">
+        <div className="flex justify-between items-end">
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold text-white tracking-tight">The Growth Flow</h2>
+            <p className="text-slate-400 text-sm">Visualising the transition of client value across phases.</p>
+          </div>
         </div>
 
-        <svg width="100%" height={availableHeight} viewBox={`0 0 1000 ${availableHeight}`} className="overflow-visible">
-          {layout.paths.map((path, idx) => (
-            <path key={idx} d={path.d} className={`${path.color} transition-all duration-500 ease-in-out hover:opacity-80`} />
-          ))}
-
-          {layout.nodes.map((node, idx) => (
-            <g key={idx} className="transition-all duration-500 ease-in-out">
-              <rect
-                x={node.x} y={node.y} width={nodeWidth} height={node.h}
-                rx={12} className="fill-slate-800/90 stroke-white/10 shadow-xl"
-              />
-              <foreignObject x={node.x + 10} y={node.y} width={nodeWidth - 20} height={node.h}>
-                <div className="h-full flex flex-col justify-center items-center text-center p-3">
-                  <span className="text-white text-xs font-bold leading-tight mb-1">{node.label}</span>
-                  <div className="bg-white/5 px-2 py-0.5 rounded text-[9px] text-slate-400 font-mono uppercase tracking-wider">
-                    {node.v} Units
-                  </div>
+        <div className="relative overflow-x-auto pb-4">
+          <div style={{ minWidth: (nodeWidth * 3) + (gapX * 2) + 40 }}>
+            {/* Perfectly aligned column headers */}
+            <div className="flex mb-8">
+              {data.columns.map((col, idx) => (
+                <div 
+                  key={col.id} 
+                  style={{ width: nodeWidth, marginLeft: idx === 0 ? 0 : gapX }}
+                  className="text-center"
+                >
+                  <span className="text-[10px] uppercase font-black tracking-[0.3em] text-emerald-400/70 block mb-1">Phase {idx + 1}</span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{col.title}</span>
                 </div>
-              </foreignObject>
-            </g>
-          ))}
-        </svg>
+              ))}
+            </div>
+
+            <svg width={(nodeWidth * 3) + (gapX * 2) + 40} height={availableHeight} className="overflow-visible">
+              <defs>
+                <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="rgba(59, 130, 246, 0.2)" />
+                  <stop offset="100%" stopColor="rgba(16, 185, 129, 0.2)" />
+                </linearGradient>
+              </defs>
+
+              {layout.paths.map((path, idx) => (
+                <path 
+                  key={idx} 
+                  d={path.d} 
+                  className="fill-blue-500/20 stroke-white/5 hover:fill-blue-500/40 transition-all cursor-help"
+                >
+                  <title>{`${path.sourceLabel} → ${path.targetLabel}: ${path.value} Units`}</title>
+                </path>
+              ))}
+
+              {layout.nodes.map((node) => (
+                <g key={node.id} className="transition-all duration-500">
+                  <rect
+                    x={node.x} y={node.y} width={nodeWidth} height={node.h}
+                    rx={12} className="fill-slate-800/90 stroke-white/10 shadow-2xl"
+                  />
+                  <foreignObject x={node.x + 10} y={node.y} width={nodeWidth - 20} height={node.h}>
+                    <div className="h-full flex flex-col justify-center items-center text-center p-3">
+                      <span className="text-white text-[11px] font-bold leading-tight mb-1">{node.label}</span>
+                      <div className="bg-white/5 px-2 py-0.5 rounded text-[9px] text-slate-500 font-mono">
+                        {node.v} Units
+                      </div>
+                    </div>
+                  </foreignObject>
+                </g>
+              ))}
+            </svg>
+          </div>
+        </div>
       </div>
 
+      {/* 4. Deep Editor Section */}
       {isEditing && (
-        <div className="pt-12 border-t border-white/10 space-y-12">
-          {/* Node Labels Editor */}
-          <div className="space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-emerald-400">Node Labels</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Object.entries(sankeyNodes).map(([key, val]) => (
-                <div key={key} className="space-y-2">
-                  <label className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
-                    {key.replace('y', 'Year ').replace('_', ': Node ')}
-                  </label>
-                  <input
-                    type="text"
-                    value={val}
-                    onChange={(e) => updateNodeLabel(key, e.target.value)}
-                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
-                  />
+        <div className="pt-12 border-t border-white/10 space-y-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          
+          {/* Node Manager */}
+          <div className="space-y-8">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-grow bg-white/10"></div>
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Node Configuration</h3>
+              <div className="h-px flex-grow bg-white/10"></div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {data.columns.map(col => (
+                <div key={col.id} className="space-y-4 bg-slate-900/40 p-5 rounded-2xl border border-white/5">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{col.title}</span>
+                    <button 
+                      onClick={() => addNode(col.id)}
+                      className="p-1.5 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors"
+                      title="Add Node"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {data.nodes.filter(n => n.colId === col.id).map(node => (
+                      <div key={node.id} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={node.label}
+                          onChange={(e) => updateNodeLabel(node.id, e.target.value)}
+                          className="flex-grow bg-slate-800/50 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white focus:ring-1 focus:ring-emerald-500/50 outline-none transition-all"
+                        />
+                        <button 
+                          onClick={() => removeNode(node.id)}
+                          className="p-2 hover:bg-red-500/20 text-red-400/50 hover:text-red-400 rounded-lg transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Flow Volumes Editor Table */}
-          <div className="space-y-6">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-blue-400">Flow Volumes</h3>
-            <div className="overflow-x-auto rounded-xl border border-white/5">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-white/5 text-slate-400 uppercase tracking-wider font-bold">
-                  <tr>
-                    <th className="px-6 py-4">Flow Path</th>
-                    <th className="px-6 py-4">Description</th>
-                    <th className="px-6 py-4 text-center">Value</th>
-                    <th className="px-6 py-4">Adjust</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {Object.entries(flowVolumes).map(([key, val]) => {
-                    const descriptions = {
-                      v1_pers_upper: "Personal/Director intake to Upper Finish",
-                      v2_frame_mid: "Framework intake to Mid Structure",
-                      v3_upper_mid: "Upper Finish maturing to Mid Structure",
-                      v4_upper_base: "Upper Finish dropping to Base Foundation",
-                      v5_mid_mid: "Mid Structure retained as Mid Structure",
-                      v6_mid_base: "Mid Structure dropping to Base Foundation"
-                    };
-                    return (
-                      <tr key={key} className="hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4 font-mono text-blue-400">{key}</td>
-                        <td className="px-6 py-4 text-slate-300">{descriptions[key]}</td>
-                        <td className="px-6 py-4 text-center font-bold text-white">{val}</td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="range" min="0" max="100" value={val}
-                            onChange={(e) => updateFlow(key, e.target.value)}
-                            className="w-32 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                          />
-                        </td>
+          {/* Flow Matrix Editor */}
+          <div className="space-y-8">
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-grow bg-white/10"></div>
+              <h3 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Transition Matrix (Flows)</h3>
+              <div className="h-px flex-grow bg-white/10"></div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+              {/* Matrix 1: Col 1 -> Col 2 */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold uppercase text-blue-400 tracking-[0.2em]">Intake → Delivery</span>
+                <div className="overflow-hidden rounded-xl border border-white/5 bg-slate-900/30">
+                  <table className="w-full text-[10px]">
+                    <thead className="bg-white/5 text-slate-500 uppercase font-bold">
+                      <tr>
+                        <th className="p-3 text-left">From \ To</th>
+                        {data.nodes.filter(n => n.colId === 'col2').map(n => (
+                          <th key={n.id} className="p-3 text-center w-20 truncate" title={n.label}>{n.label.split(' ')[0]}</th>
+                        ))}
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {data.nodes.filter(n => n.colId === 'col1').map(sNode => (
+                        <tr key={sNode.id}>
+                          <td className="p-3 font-bold text-slate-400">{sNode.label}</td>
+                          {data.nodes.filter(n => n.colId === 'col2').map(tNode => {
+                            const flow = data.flows.find(f => f.sourceId === sNode.id && f.targetId === tNode.id);
+                            return (
+                              <td key={tNode.id} className="p-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={flow?.value || 0}
+                                  onChange={(e) => updateFlow(sNode.id, tNode.id, e.target.value)}
+                                  className="w-full bg-slate-800 border border-white/10 rounded-md px-2 py-1.5 text-center text-white focus:border-blue-500/50 outline-none"
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Matrix 2: Col 2 -> Col 3 */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold uppercase text-emerald-400 tracking-[0.2em]">Delivery → Maturity</span>
+                <div className="overflow-hidden rounded-xl border border-white/5 bg-slate-900/30">
+                  <table className="w-full text-[10px]">
+                    <thead className="bg-white/5 text-slate-500 uppercase font-bold">
+                      <tr>
+                        <th className="p-3 text-left">From \ To</th>
+                        {data.nodes.filter(n => n.colId === 'col3').map(n => (
+                          <th key={n.id} className="p-3 text-center w-20 truncate" title={n.label}>{n.label.split(' ')[0]}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {data.nodes.filter(n => n.colId === 'col2').map(sNode => (
+                        <tr key={sNode.id}>
+                          <td className="p-3 font-bold text-slate-400">{sNode.label}</td>
+                          {data.nodes.filter(n => n.colId === 'col3').map(tNode => {
+                            const flow = data.flows.find(f => f.sourceId === sNode.id && f.targetId === tNode.id);
+                            return (
+                              <td key={tNode.id} className="p-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={flow?.value || 0}
+                                  onChange={(e) => updateFlow(sNode.id, tNode.id, e.target.value)}
+                                  className="w-full bg-slate-800 border border-white/10 rounded-md px-2 py-1.5 text-center text-white focus:border-emerald-500/50 outline-none"
+                                />
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>
